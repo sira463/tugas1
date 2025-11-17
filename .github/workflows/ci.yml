@@ -10,31 +10,30 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
-    # 1. SETUP SERVICE MYSQL BAWAAN (Menggantikan action pihak ketiga)
-    # Ini adalah cara paling stabil untuk menjalankan database di GitHub Actions.
-    services:
-      mysql:
-        image: mysql:8.0
-        # Variabel lingkungan untuk konfigurasi MySQL Service
-        env:
-          MYSQL_ROOT_PASSWORD: ${{ env.DB_PASSWORD }}
-          MYSQL_DATABASE: ${{ env.DB_NAME }}
-        ports:
-          - 3306:3306
-        # Health Check: GitHub Actions akan menunggu sampai DB siap (ping) 
-        # sebelum menjalankan step apapun yang bergantung pada koneksi MySQL.
-        options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -u root -p${{ env.DB_PASSWORD }}"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=10
-
-    # Variabel lingkungan (Environment Variables)
+    # 1. DEFINISI ENV (Variabel Global untuk langkah RUN)
     env:
       DB_SERVER: 127.0.0.1
       DB_USERNAME: root
-      DB_PASSWORD: root
-      DB_NAME: db_kontak_test # Nama database test
+      DB_PASSWORD: root 
+      DB_NAME: db_kontak_test 
+
+    # 2. SETUP SERVICE MYSQL
+    # Blok ini akan menjalankan kontainer MySQL.
+    services:
+      mysql:
+        image: mysql:8.0
+        # CRITICAL FIX: Nilai di-HARDCODE di sini untuk menghindari error YAML
+        env:
+          MYSQL_ROOT_PASSWORD: root 
+          MYSQL_DATABASE: db_kontak_test 
+        ports:
+          - 3306:3306
+        # Health Check: Nilai di-HARDCODE di sini juga untuk memastikan koneksi stabil
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -u root -proot" 
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
       
     steps:
     # 1. Checkout kode repository
@@ -46,15 +45,15 @@ jobs:
       uses: shivammathur/setup-php@v2
       with:
         php-version: '8.2'
-        extensions: mysqli, pdo_mysql # Ekstensi yang dibutuhkan
+        extensions: mysqli, pdo_mysql 
         tools: composer
         
-    # 3. Instal Composer Dependencies (menginstal PHPUnit)
+    # 3. Instal Composer Dependencies
     - name: Install dependencies
       run: composer install --prefer-dist --no-progress
 
-    # 4. Masukkan skema tabel 'kontak' ke database test (db_kontak_test)
-    # Langkah ini akan otomatis menunggu karena konfigurasi 'services' di atas
+    # 4. Masukkan skema tabel 'kontak' ke database test
+    # Langkah ini menggunakan variabel ENV yang aman
     - name: Setup Test Database Schema
       run: |
         mysql -h ${{ env.DB_SERVER }} -u ${{ env.DB_USERNAME }} -p${{ env.DB_PASSWORD }} ${{ env.DB_NAME }} < kontak.sql
