@@ -10,13 +10,32 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
-    # Definisikan environment variables untuk koneksi database test
-    env:
-        DB_SERVER: 127.0.0.1
-        DB_USERNAME: root
-        DB_PASSWORD: root
-        DB_NAME: db_kontak_test # Nama database test
+    # 1. SETUP SERVICE MYSQL BAWAAN (Menggantikan action pihak ketiga)
+    # Ini adalah cara paling stabil untuk menjalankan database di GitHub Actions.
+    services:
+      mysql:
+        image: mysql:8.0
+        # Variabel lingkungan untuk konfigurasi MySQL Service
+        env:
+          MYSQL_ROOT_PASSWORD: ${{ env.DB_PASSWORD }}
+          MYSQL_DATABASE: ${{ env.DB_NAME }}
+        ports:
+          - 3306:3306
+        # Health Check: GitHub Actions akan menunggu sampai DB siap (ping) 
+        # sebelum menjalankan step apapun yang bergantung pada koneksi MySQL.
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -u root -p${{ env.DB_PASSWORD }}"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
 
+    # Variabel lingkungan (Environment Variables)
+    env:
+      DB_SERVER: 127.0.0.1
+      DB_USERNAME: root
+      DB_PASSWORD: root
+      DB_NAME: db_kontak_test # Nama database test
+      
     steps:
     # 1. Checkout kode repository
     - name: Checkout code
@@ -26,32 +45,20 @@ jobs:
     - name: Set up PHP
       uses: shivammathur/setup-php@v2
       with:
-        php-version: '8.2' # Sesuaikan dengan versi PHP Anda
+        php-version: '8.2'
         extensions: mysqli, pdo_mysql # Ekstensi yang dibutuhkan
         tools: composer
-
-    # 3. Setup MySQL Service untuk Database Test
-    - name: Start MySQL
-      uses: mirromutth/mysql-action@v1.1
-      with:
-        mysql version: '8.0' # Versi MySQL/MariaDB
-        mysql database: ${{ env.DB_NAME }} # Gunakan DB_NAME dari env
-        mysql root password: ${{ env.DB_PASSWORD }}
         
-    # 4. Tunggu sebentar agar DB service benar-benar siap
-    - name: Wait for MySQL
-      run: sleep 5
-      
-    # 5. Instal Composer Dependencies (menginstal PHPUnit)
+    # 3. Instal Composer Dependencies (menginstal PHPUnit)
     - name: Install dependencies
       run: composer install --prefer-dist --no-progress
 
-    # 6. Masukkan skema tabel 'kontak' ke database test (db_kontak_test)
+    # 4. Masukkan skema tabel 'kontak' ke database test (db_kontak_test)
+    # Langkah ini akan otomatis menunggu karena konfigurasi 'services' di atas
     - name: Setup Test Database Schema
       run: |
         mysql -h ${{ env.DB_SERVER }} -u ${{ env.DB_USERNAME }} -p${{ env.DB_PASSWORD }} ${{ env.DB_NAME }} < kontak.sql
 
-    # 7. Jalankan script pengujian (PHPUnit)
-    # Catatan: Test ApiTest.php akan menggunakan variabel env di atas.
+    # 5. Jalankan script pengujian (PHPUnit)
     - name: Run tests with PHPUnit
       run: ./vendor/bin/phpunit
