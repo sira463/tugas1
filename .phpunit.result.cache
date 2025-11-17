@@ -1,0 +1,1 @@
+{"version":1,"defects":[],"times":{"ApiTest::testValidasiInputSukses":0.145,"ApiTest::testValidasiInputGagalNamaTelepon":0.032,"ApiTest::testA_CreateKontak":0.027,"ApiTest::testReadKontak":0.023,"ApiTest::testUpdateKontak":0.029,"ApiTest::testDeleteKontak":0.027}}

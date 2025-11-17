@@ -1,0 +1,57 @@
+name: CI/CD PHP CRUD Test
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    # Definisikan environment variables untuk koneksi database test
+    env:
+        DB_SERVER: 127.0.0.1
+        DB_USERNAME: root
+        DB_PASSWORD: root
+        DB_NAME: db_kontak_test # Nama database test
+
+    steps:
+    # 1. Checkout kode repository
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    # 2. Setup lingkungan PHP
+    - name: Set up PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.2' # Sesuaikan dengan versi PHP Anda
+        extensions: mysqli, pdo_mysql # Ekstensi yang dibutuhkan
+        tools: composer
+
+    # 3. Setup MySQL Service untuk Database Test
+    - name: Start MySQL
+      uses: mirromutth/mysql-action@v1.1
+      with:
+        mysql version: '8.0' # Versi MySQL/MariaDB
+        mysql database: ${{ env.DB_NAME }} # Gunakan DB_NAME dari env
+        mysql root password: ${{ env.DB_PASSWORD }}
+        
+    # 4. Tunggu sebentar agar DB service benar-benar siap
+    - name: Wait for MySQL
+      run: sleep 5
+      
+    # 5. Instal Composer Dependencies (menginstal PHPUnit)
+    - name: Install dependencies
+      run: composer install --prefer-dist --no-progress
+
+    # 6. Masukkan skema tabel 'kontak' ke database test (db_kontak_test)
+    - name: Setup Test Database Schema
+      run: |
+        mysql -h ${{ env.DB_SERVER }} -u ${{ env.DB_USERNAME }} -p${{ env.DB_PASSWORD }} ${{ env.DB_NAME }} < kontak.sql
+
+    # 7. Jalankan script pengujian (PHPUnit)
+    # Catatan: Test ApiTest.php akan menggunakan variabel env di atas.
+    - name: Run tests with PHPUnit
+      run: ./vendor/bin/phpunit
