@@ -10,7 +10,7 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
 
-    # 1. DEFINISI ENV (Variabel Global untuk langkah RUN)
+    # 1. DEFINISI ENV 
     env:
       DB_SERVER: 127.0.0.1
       DB_USERNAME: root
@@ -18,17 +18,15 @@ jobs:
       DB_NAME: db_kontak_test 
 
     # 2. SETUP SERVICE MYSQL
-    # Blok ini akan menjalankan kontainer MySQL.
+    # Menggunakan hardcode credentials untuk menghindari bug parser YAML
     services:
       mysql:
         image: mysql:8.0
-        # CRITICAL FIX: Nilai di-HARDCODE di sini untuk menghindari error YAML
         env:
           MYSQL_ROOT_PASSWORD: root 
           MYSQL_DATABASE: db_kontak_test 
         ports:
           - 3306:3306
-        # Health Check: Nilai di-HARDCODE di sini juga untuk memastikan koneksi stabil
         options: >-
           --health-cmd="mysqladmin ping -h 127.0.0.1 -u root -proot" 
           --health-interval=10s
@@ -52,8 +50,12 @@ jobs:
     - name: Install dependencies
       run: composer install --prefer-dist --no-progress
 
+    # --- PERBAIKAN AKHIR: FIX 'Permission denied' (Exit Code 126) ---
+    # Memberikan izin eksekusi pada file binary PHPUnit
+    - name: Set executable permission for PHPUnit
+      run: chmod +x vendor/bin/phpunit
+    
     # 4. Masukkan skema tabel 'kontak' ke database test
-    # Langkah ini menggunakan variabel ENV yang aman
     - name: Setup Test Database Schema
       run: |
         mysql -h ${{ env.DB_SERVER }} -u ${{ env.DB_USERNAME }} -p${{ env.DB_PASSWORD }} ${{ env.DB_NAME }} < kontak.sql
